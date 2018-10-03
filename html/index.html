@@ -1,0 +1,1034 @@
+﻿<!DOCTYPE html>
+<html>
+<head lang="en">
+  <title>Shell Map - Turtlecoin Global Node Map</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://bootswatch.com/4/slate/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.perfect-scrollbar/1.4.0/css/perfect-scrollbar.min.css" />
+  <link rel="stylesheet" href="/css/custom.css" />
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="http://d3js.org/queue.v1.min.js"></script>
+  <script src="http://d3js.org/topojson.v0.min.js"></script>
+  <script src="/js/versor.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.perfect-scrollbar/1.4.0/perfect-scrollbar.min.js"></script>
+  <script src="/js/palette.js"></script>
+  <script src="/js/simpler-sidebar.js"></script>
+</head>
+
+<body class="noscroll">
+
+  <div id="container" class="container-fluid">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div id="logo"></div>
+      <a class="navbar-brand" href="#">Shell Map - Turtlecoin Global Network</a>
+
+      <div style="margin-left:auto; display: inline-flex;">
+        <div class="btn-group mr-2" role="group" aria-label="First group">
+          <button type="button" class="btn btn-outline-success my-2 my-sm-0 active" id="btnOrthographic">
+            <i class="fas fa-globe"></i>
+          </button>
+          <button type="button" class="btn btn-outline-success my-2 my-sm-0" id="btnMercator">
+            <i class="far fa-map"></i>
+          </button>
+        </div>
+
+        <button id="sidebar-trigger" class="btn btn-outline-success my-2 my-sm-0">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </nav>
+
+    <div class="row">
+    </div>
+  </div>
+
+  <div id="map-container">
+  </div>
+
+  <div id="slider">
+
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link active" data-toggle="tab" href="#stats">Stats</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-toggle="tab" href="#info">Info</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-toggle="tab" href="#search">Search</a>
+      </li>
+    </ul>
+
+    <div class="tab-content" style="position: absolute; left:0px; top:42px; right:0px; bottom:0px">
+      <div class="tab-pane container active" id="stats" style="position: relative; height: 100%;">
+        <div class="statsDiv">
+          <h6>Total nodes: <span id="nodeCount"></span></h6>
+          <h6>Open nodes: <span id="nodeValid"></span></h6>
+          <h6>Closed nodes: <span id="nodeInvalid"></span></h6>
+        </div>
+        <hr>
+        <div class="chartDiv">
+          <canvas id="regionDonut" style="width:430px; height: 200px;"></canvas>
+          <canvas id="countryDonut" style="width:430px; height: 400px;"></canvas>
+        </div>
+      </div>
+
+      <div class="tab-pane container fade" id="info" style="position: relative; height: 100%;">
+        <div id="nodeInfoIntro" class="text-white">(Click a node to view its info)</div>
+        <div id="nodeInfo" class="text-white"></div>
+      </div>
+
+      <div class="tab-pane container fade" id="search" style="position: relative; height: 100%; display: flex; flex-direction: column;">
+
+        <div style="position: relative; margin-bottom: 5px;">
+          <div style="display: flex; margin-bottom: 5px;">
+            <input id="searchInput" class="form-control mr-sm-2" style="" type="text" placeholder="Search IP or Host" aria-label="Search" autocomplete="off">
+            <button type="button" class="btn btn-outline-success my-2 my-sm-0" id="clearSearch">
+              <i class="far fa-times-circle"></i>
+            </button>
+          </div>
+          <div>
+            <label class="radio-inline"><input type="radio" value="all" name="optSearchNodeType" checked autocomplete="off"> All</label>
+            <label class="radio-inline"><input type="radio" value="open" name="optSearchNodeType" autocomplete="off"> Open</label>
+            <label class="radio-inline"><input type="radio" value="closed" name="optSearchNodeType" autocomplete="off"> Closed</label>
+          </div>
+        </div>
+
+        <div id="searchResultsContainer" style="position: relative; height: 100%">
+          <ul id="searchResults" class="list-group" style="margin-right: 10px;"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    var width = 960;
+    var height = 500;
+    var countryNames = {};
+    var viewMode = "mercator";
+
+    var mapWorld;
+    var mapNames;
+
+    var proj;
+    var path;
+    var svg;
+
+    var initialScale;
+
+    const graticule = d3.geoGraticule();
+
+    var drag = d3.drag()
+      .on("start", dragStart)
+      .on("drag", drag)
+      .on("end", dragEnd);
+
+    var zoom = d3.zoom()
+      .scaleExtent([1, 100])
+      .wheelDelta(function () { return -d3.event.deltaY * (d3.event.deltaMode ? 120 : 1) / 1500; })
+      .on('zoom', zoom)
+      .on('end', zoomEnd);
+
+    var countryTip = d3.select("body")
+      .append("div")
+      .attr("class", "countryTip")
+      .attr("id", "countryTip")
+      .style("position", "absolute")
+      .style("opacity", "0");
+
+    var bubbleTip = d3.tip().offset([-10, 0]).attr('class', 'd3-tip').html(function (d) { return bubbleTipContent(d); });
+
+    queue()
+      .defer(d3.json, "data/world-110m.json")
+      .defer(d3.tsv, "data/world-country-names.tsv")
+      .await(ready);
+
+    function ready(error, world, names) {
+
+      mapWorld = world;
+      mapNames = names;
+
+      names.forEach(function (i) {
+        countryNames[i.id] = i.name;
+      });
+           
+      switchView(viewMode)
+    }
+
+    function initMap(world, names, view) {
+
+      viewMode = view;
+
+      if (svg) {
+        svg.remove();
+        svg = null;
+      }
+
+      svg = d3.select("#map-container").append("svg")
+        .attr("preserveAspectRatio", "xMidYMin meet")
+        .attr("viewBox", "0 25 " + width + " " + height)
+        .classed("svg-content", true);
+
+      if (view == "orthographic") {
+        proj = d3.geoOrthographic()
+          .scale(220)
+          .translate([width / 2, height / 2])
+          .clipAngle(90);
+        path = d3.geoPath().projection(proj).pointRadius(1);
+        svg.call(drag);
+        svg.call(zoom);
+      } else if (view == "mercator") {
+        proj = d3.geoMercator()
+          .scale(100)
+          .translate([width / 2, height / 2])
+        path = d3.geoPath().projection(proj).pointRadius(1);
+        // svg.call(drag);
+        svg.call(zoom);
+      }
+
+      initialScale = proj.scale();
+
+      svg.call(bubbleTip)
+
+      if (view == "orthographic") {
+
+        var ocean_fill = svg.append("defs").append("radialGradient")
+          .attr("id", "ocean_fill")
+          .attr("cx", "75%")
+          .attr("cy", "25%");
+        ocean_fill.append("stop").attr("offset", "5%").attr("stop-color", "rgb(0,0,0)");
+        ocean_fill.append("stop").attr("offset", "100%").attr("stop-color", "rgb(0,0,0)");
+
+        var globe_highlight = svg.append("defs").append("radialGradient")
+          .attr("id", "globe_highlight")
+          .attr("cx", "75%")
+          .attr("cy", "25%");
+        globe_highlight.append("stop")
+          .attr("offset", "5%").attr("stop-color", "rgb(0,155,71)")
+          .attr("stop-opacity", ".6");
+        globe_highlight.append("stop")
+          .attr("offset", "100%").attr("stop-color", "rgb(0,0,0)")
+          .attr("stop-opacity", "0.2");
+
+        var globe_shading = svg.append("defs").append("radialGradient")
+          .attr("id", "globe_shading")
+          .attr("cx", "50%")
+          .attr("cy", "40%");
+        globe_shading.append("stop")
+          .attr("offset", "50%").attr("stop-color", "rgb(0,65,30)")
+          .attr("stop-opacity", "0")
+        globe_shading.append("stop")
+          .attr("offset", "100%").attr("stop-color", "rgb(0,37,17)")
+          .attr("stop-opacity", "0.3")
+
+        var drop_shadow = svg.append("defs").append("radialGradient")
+          .attr("id", "drop_shadow")
+          .attr("cx", "50%")
+          .attr("cy", "50%");
+        drop_shadow.append("stop")
+          .attr("offset", "20%").attr("stop-color", "#000")
+          .attr("stop-opacity", ".5")
+        drop_shadow.append("stop")
+          .attr("offset", "100%").attr("stop-color", "#000")
+          .attr("stop-opacity", "0")
+
+        svg.append("ellipse")
+          .attr("cx", 440).attr("cy", 450)
+          .attr("rx", proj.scale() * .90)
+          .attr("ry", proj.scale() * .25)
+          .attr("class", "noclicks")
+          .style("fill", "url(#drop_shadow)");
+
+        svg.append("circle")
+          .attr("cx", width / 2).attr("cy", height / 2)
+          .attr("r", proj.scale())
+          .attr("class", "noclicks")
+          .style("fill", "url(#ocean_fill)");
+      }
+
+      if (view == "orthographic") {
+        svg.append("path")
+          .datum(graticule)
+          .attr("class", "graticule noclicks")
+          .attr("d", path);
+      }
+
+      svg.append("g").attr("class", "countries")
+        .selectAll("path")
+        .data(topojson.object(world, world.objects.countries).geometries)
+        .enter().append("path")
+        .attr("d", path)
+        .on('mouseover', function (d) {
+          countryTip
+            .style("opacity", "1")
+            .html("<div>" + countryNames[d.id] + "</div>")
+            .style("left", (d3.event.pageX) - $('#countryTip').outerWidth() / 2 + "px")
+            .style("top", (d3.event.pageY - $('#countryTip').outerHeight() - 30 + "px"))
+        })
+        .on('mouseout', function (d) {
+          countryTip
+            .style("opacity", "0")
+        });
+
+      svg.append("g").attr("class", "bubbles");
+      svg.append("g").attr("class", "arcs");
+
+      if (view == "orthographic") {
+        svg.append("circle")
+          .attr("cx", width / 2).attr("cy", height / 2)
+          .attr("r", proj.scale())
+          .attr("class", "noclicks")
+          .style("fill", "url(#globe_highlight)");
+
+        svg.append("circle")
+          .attr("cx", width / 2).attr("cy", height / 2)
+          .attr("r", proj.scale())
+          .attr("class", "noclicks")
+          .style("fill", "url(#globe_shading)");
+      }
+
+      refresh();
+
+    }
+
+    var lastRotate = [0, 0, 0];
+    var lastScale = 0;
+
+    function refresh() {
+      // svg.selectAll(".land").attr("d", path);
+      svg.selectAll(".countries path").attr("d", path);
+      svg.selectAll(".graticule").attr("d", path);
+      // svg.selectAll(".point").attr("d", path);
+      // svg.selectAll(".bubbles path").attr("d", path);
+
+      svg.selectAll("circle").attr("r", proj.scale());
+      svg.selectAll("ellipse").attr("rx", proj.scale() * .9).attr("ry", proj.scale() * .25);
+      // svg.selectAll("ellipse").attr("ry", proj.scale() *.25);
+
+      var currentRotate = proj.rotate();
+      if (proj.scale() != lastScale || currentRotate[0] != lastRotate[0] || currentRotate[1] != lastRotate[1] || currentRotate[2] != lastRotate[2]) {
+        if (searchFilterResults) updateMarkers(searchFilterResults);
+        if (lastArcs) updateArcs(lastArcs)
+      }
+      lastScale = proj.scale();
+      lastRotate = proj.rotate();
+    }
+
+    function dragStart() {
+      // timer.stop();
+      if (viewMode == "orthographic") {
+        v0 = versor.cartesian(proj.invert(d3.mouse(this)));
+        r0 = proj.rotate();
+        q0 = versor(r0);
+      }
+    }
+
+    function drag() {
+      if (viewMode == "orthographic") {
+        var v1 = versor.cartesian(proj.rotate(r0).invert(d3.mouse(this))),
+          q1 = versor.multiply(q0, versor.delta(v0, v1)),
+          r1 = versor.rotation(q1);
+        proj.rotate(r1);
+        refresh();
+      }
+    }
+
+    function dragEnd() {
+
+    }
+
+    function zoom() {
+      if (viewMode == "orthographic") {
+        proj.scale(initialScale * d3.event.transform.k);
+        refresh();
+
+      } else if (viewMode = "mercator") {
+        var t = d3.event.transform;
+        var scale = t.k;
+        proj.scale(initialScale * scale);
+
+        t.x = Math.min(0, Math.max(t.x, width - width * scale)),
+          t.y = Math.min(0, Math.max(t.y, height - height * scale));
+
+        // pan using projection
+        // proj.translate([t.x + (width * scale) / 2, t.y + (height * scale) / 2])
+
+        var centerOffset = t.apply([width / 2, height / 2]);
+        var translateY = (centerOffset[1] - height / 2)
+        var translateX = (centerOffset[0] - width / 2)
+
+        d3.selectAll("g").attr("transform", "translate(" + [translateX, translateY] + ")");
+
+        refresh()
+      }
+    }
+
+    function zoomEnd() {
+
+    }
+  </script>
+
+  <script>
+
+    var lastStats;
+    var lastArcs;
+    var searchFilterResults;
+    var psInfo;
+    var psSearch;
+    var psStats;
+
+    var regionDonutEl = document.getElementById("regionDonut").getContext("2d");
+    var regionDonut = new Chart(regionDonutEl, {
+      type: 'doughnut',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Nodes",
+            backgroundColor: [],
+            borderWidth: 0,
+            data: []
+          }
+        ]
+      },
+      options: {
+        title: {
+          display: true,
+          text: 'Region Turtle Nodes',
+          fontColor: '#fff'
+        },
+        legend: {
+          labels: {
+            padding: 5,
+            boxWidth: 10,
+            fontColor: '#fff'
+          }
+        },
+        maintainAspectRatio: false,
+        responsive: false,
+        segmentShowStroke: true,
+        segmentStrokeColor: "#fff",
+        segmentStrokeWidth: 1,
+        percentageInnerCutout: 50,
+        animationSteps: 100,
+        animationEasing: "easeOutBounce",
+        animateRotate: true,
+        maintainAspectRatio: true,
+        showScale: true,
+        animateScale: true
+      }
+    });
+
+    var countryDonutEl = document.getElementById("countryDonut").getContext("2d");
+    var countryDonut = new Chart(countryDonutEl, {
+      type: 'doughnut',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Nodes",
+            backgroundColor: [],
+            borderWidth: 0,
+            data: []
+          }
+        ]
+      },
+      options: {
+        title: {
+          display: true,
+          text: 'Country Turtle Nodes',
+          fontColor: '#fff'
+        },
+        legend: {
+          labels: {
+            padding: 5,
+            boxWidth: 10,
+            fontColor: '#fff'
+          }
+        },
+        maintainAspectRatio: false,
+        responsive: false,
+        segmentShowStroke: true,
+        segmentStrokeColor: "#fff",
+        segmentStrokeWidth: 1,
+        percentageInnerCutout: 50,
+        animationSteps: 100,
+        animationEasing: "easeOutBounce",
+        animateRotate: true,
+        maintainAspectRatio: true,
+        showScale: true,
+        animateScale: true
+      }
+    });
+
+    function fetchStats() {
+      $.ajax({
+        url: '/api/stats',
+        dataType: 'json',
+        cache: 'false'
+      }).done(function (data) {
+        if (data) {
+          lastStats = data;
+          searchFilterResults = searchFilter(lastStats.geoLocations)
+          updateStats(data);
+        }
+      }).always(function () {
+        setTimeout(function () {
+          fetchStats();
+        }, 15000);
+      });
+    }
+
+    function fetchArcs(host) {
+      $.ajax({
+        url: '/api/stats/arcs/' + host,
+        dataType: 'json',
+        cache: 'false'
+      }).done(function (data) {
+        if (data) {
+          lastArcs = data;
+          updateArcs(data)
+        }
+      }).always(function () {
+
+      });
+    }
+
+    function fetchNode(host) {
+      $.ajax({
+        url: '/api/stats/node/' + host,
+        dataType: 'json',
+        cache: 'false'
+      }).done(function (nodeData) {
+        var data = lastStats.geoLocations.find(d => d.host == host)
+        updateNode(nodeData, data)
+      }).always(function () {
+
+      });
+    }
+
+    function updateStats(data) {
+      if (!data) return;
+      updateMarkers(searchFilterResults);
+      // updateArcs(data.arcLocations);
+      updateDonutChart(regionDonut, data.regionData.stats);
+      updateDonutChart(countryDonut, data.countryData.stats);
+
+      updateText("#nodeCount", data.globalData.nodeCount);
+      updateText("#nodeValid", data.globalData.nodeValidCount);
+      updateText("#nodeInvalid", data.globalData.nodeInvalidCount);
+      psStats.update();
+    }
+
+    function bubbleTipContent(data) {
+
+      var content = []
+
+      content.push('<div class="divTable">')
+      content.push('<div class="divTableBody">')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Node</div>')
+      content.push('<div class="divTableCell">' + data.name + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Host name</div>')
+      content.push('<div class="divTableCell">' + (data.rDNS || ['None']).join('<br>') + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Open</div>')
+      content.push('<div class="divTableCell">' + (data.valid ? 'Yes' : 'No') + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Peers known</div>')
+      content.push('<div class="divTableCell">' + data.peers + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Known by</div>')
+      content.push('<div class="divTableCell">' + data.peersKnownBy + '</div>')
+      content.push('</div>')
+
+      if (data.fee != undefined) {
+        content.push('<div class="divTableRow">')
+        content.push('<div class="divTableCell">Fee</div>')
+        content.push('<div class="divTableCell">' + formatFee(data.fee) + '</div>')
+        content.push('</div>')
+      }
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Region</div>')
+      content.push('<div class="divTableCell">' + data.region + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Country</div>')
+      content.push('<div class="divTableCell">' + data.country + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">City</div>')
+      content.push('<div class="divTableCell">' + data.city + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">First seen</div>')
+      content.push('<div class="divTableCell">' + formatDate(data.firstSeen) + '</div>')
+      content.push('</div>')
+
+      content.push('<div class="divTableRow">')
+      content.push('<div class="divTableCell">Last seen</div>')
+      content.push('<div class="divTableCell">' + formatDate(data.lastSeen) + '</div>')
+      content.push('</div>')
+
+      content.push('</div>')
+      content.push('</div>')
+      content.push('<hr>')
+      return content.join('');
+
+    }
+
+    function hasSearchFilter() {
+      var input = $("#searchInput").val();
+      if (input === '') {
+        return false;
+      }
+      return true;
+    }
+
+    function searchFilter(data) {
+      if (!hasSearchFilter()) return data;
+      var input = $("#searchInput").val();
+      var searchType = $("input[name=optSearchNodeType]:checked").val();
+
+      const results = data.filter(d => d.host.includes(input) || d.rDNS.find(s => s.includes(input)));
+      var results2;
+
+      if (searchType == 'open') {
+        results2 = results.filter(d => d.valid === true)
+      } else if (searchType == 'closed') {
+        results2 = results.filter(d => d.valid === false)
+      } else {
+        results2 = results;
+      }
+
+      return results2;
+
+    }
+
+    function updateMarkers(markers) {
+
+      var circlePath = function (d, r) {
+        return path(d3.geoCircle().center([d.longitude, d.latitude]).radius(r)());
+      }
+
+      var pointPath = function (d, r) {
+        var pr = d3.geoPath().projection(proj).pointRadius((r / 8) * (proj.scale() / 2 / Math.PI));
+        //var pr = d3.geoPath().projection(proj).pointRadius((r/3));
+        return pr({
+          type: "Point",
+          coordinates: [d.longitude, d.latitude]
+        })
+      }
+
+      var bubbles = svg.select(".bubbles").selectAll(".bubble")
+        .data(markers, JSON.stringify)
+
+      //var bubbles = svg.select(".bubbles").selectAll(".bubble").data(markers, JSON.stringify );
+
+      bubbles.exit()
+        .on('mouseover', null)
+        .on('mouseout', null)
+        .transition()
+        .style('opacity', 0)
+        .remove();
+
+      bubbles.attr("d", function (d) {
+        return pointPath(d, d.radius)
+      })
+
+      bubbles.enter().append("path")
+        .attr("class", function (d) { return d.valid ? "bubble valid" : "bubble invalid" })
+        .attr("d", function (d) {
+          return pointPath(d, 0)
+        })
+        .on('click', function (item) {
+          fetchArcs(item.host);
+          fetchNode(item.host);
+          svg.select(".bubbles").selectAll(".bubble").style('fill', null).style('stroke', null)
+          d3.select(this).style('fill', 'rgb(255, 255, 255)').style('stroke', 'rgb(0, 255, 0)')
+        })
+        .on('mouseover', bubbleTip.show)
+        .on('mouseout', bubbleTip.hide)
+        .transition()
+        .duration(500)
+        .attrTween("d", function (d) {
+          var rinterp = d3.interpolate(0, d.radius);
+
+          var fn = function (t) {
+            d.radius = rinterp(t);
+            return pointPath(d, d.radius);
+          };
+          return fn;
+        });
+
+    }
+
+    function updateArcs(arcs) {
+
+      function greatArcPath2(d) {
+        return path({ type: "LineString", coordinates: [[d.origin.longitude, d.origin.latitude], [d.destination.longitude, d.destination.latitude]] })
+      }
+
+      function greatArcPath(d) {
+        function latLngToXY(lat, lng) {
+          return proj([lng, lat])
+        }
+        var originXY = latLngToXY(d.origin.latitude, d.origin.longitude)
+
+        var destXY = latLngToXY(d.destination.latitude, d.destination.longitude);
+
+        var midXY = [(originXY[0] + destXY[0]) / 2, (originXY[1] + destXY[1]) / 2];
+
+        var sharpness = 1;
+
+        var scale = d3.geoDistance([d.origin.longitude, d.origin.latitude], [d.destination.longitude, d.destination.latitude]);
+
+        sharpness = scale
+
+        return "M" + originXY[0] + ',' + originXY[1] + "S" + (midXY[0] + (50 * sharpness)) + "," + (midXY[1] - (75 * sharpness)) + "," + destXY[0] + "," + destXY[1];
+      }
+
+      var arcs = svg.select(".arcs").selectAll(".arc").data(arcs, JSON.stringify);
+
+      arcs.exit()
+        .transition()
+        .style('opacity', 0)
+        .remove();
+
+      arcs.attr("d", function (d) {
+        return viewMode == "mercator" ? greatArcPath(d) : greatArcPath2(d)
+      })
+        .style('transition', null)
+        .style('-webkit-transition', null)
+        .style('stroke-dasharray', null)
+        .style('stroke-dashoffset', null)
+
+      arcs.enter().append("path")
+        .attr("class", "arc")
+        .attr("d", function (d) {
+          return viewMode == "mercator" ? greatArcPath(d) : greatArcPath2(d)
+        }).transition()
+        .delay(100)
+        .style('fill', function (datum) {
+          var length = this.getTotalLength();
+          this.style.transition = this.style.WebkitTransition = 'none';
+          this.style.strokeDasharray = length + ' ' + length;
+          this.style.strokeDashoffset = length;
+          this.getBoundingClientRect();
+          this.style.transition = this.style.WebkitTransition = 'stroke-dashoffset ' + 750 + 'ms ease-out';
+          this.style.strokeDashoffset = '0';
+          return 'none';
+        })
+
+    }
+
+    function updateNode(nodeData, data) {
+
+      var arrContent = [];
+
+      var contentNodeInfo;
+      var contentNodeInfoIntro;
+
+      if (Object.keys(data).length !== 0) {
+        contentNodeInfoIntro = bubbleTipContent(data)
+        updateHtml('#nodeInfoIntro', contentNodeInfoIntro);
+      } else {
+        updateText('#nodeInfoIntro', '');
+      }
+
+      if (Object.keys(nodeData).length !== 0) {
+        contentNodeInfo = JSON.stringify(nodeData, null, 2)
+        updateText('#nodeInfo', contentNodeInfo);
+      } else {
+        updateText('#nodeInfo', '');
+      }
+
+      if (!contentNodeInfoIntro && !contentNodeInfo) {
+        updateText('#nodeInfoIntro', 'No data.');
+      }
+
+      psInfo.update();
+    }
+
+    function updateDonutChart(chart, data) {
+      var labels = [];
+      var values = [];
+
+      data.forEach((value) => {
+        labels.push(value.key + ' (' + value.value + ')');
+        values.push(value.value);
+      })
+
+      var colors = palette(['tol', 'qualitative'], labels.length).map((color) => '#' + color);
+
+      chart.data.datasets[0].data = values;
+      chart.data.datasets[0].backgroundColor = colors;
+      chart.data.labels = labels;
+      chart.update(0);
+    }
+
+    function getSearchListItem(result) {
+
+      var item = [];
+
+      item.push('<li class="list-group-item" data-host="' + result.host + '" data-lat="' + result.latitude + '" data-lon="' + result.longitude + '">')
+
+      item.push('<div class="divTableRow">')
+
+      item.push((result.valid ? '<div class="divTableCell"><i class="fas fa-sitemap btn-outline-success"></i></div>' : '<div class="divTableCell"><i class="fas fa-sitemap"></i></div>'))
+
+      item.push('<div class="divTableCell">')
+
+      item.push('' + result.name)
+
+      if (result.rDNS.join('') != '') {
+        item.push('<br>' + result.rDNS.join('<br>'))
+      }
+
+      if (result.fee != undefined) {
+        item.push('<br> Fee: ' + formatFee(result.fee))
+      }
+
+      item.push('</div>')
+
+      item.push('</div>')
+
+      item.push('</li>')
+
+      return item.join('');
+    }
+
+    function processSearch() {
+      searchFilterResults = searchFilter(lastStats.geoLocations);
+
+      $('#searchResults').empty();
+
+      if (hasSearchFilter() === false) {
+        psSearch.update();
+        updateMarkers(searchFilterResults)
+        return;
+      }
+
+      for (var i = 0; i < searchFilterResults.length; i++) {
+        var result = getSearchListItem(searchFilterResults[i]);
+        $('#searchResults').prepend(result);
+      }
+
+      $("#searchResults li").click(function () {
+
+        var scale = 5;
+        var dataset = this.dataset;
+
+        var node = svg.select(".bubbles").selectAll(".bubble")
+          .filter(function (d) {
+            return d['latitude'] == dataset.lat && d['longitude'] == dataset.lon
+          });
+
+        svg.select(".bubbles").selectAll(".bubble").style('fill', null).style('stroke', null)
+        node.style('fill', 'rgb(255, 255, 255)').style('stroke', 'rgb(0, 255, 0)')
+
+        fetchNode(dataset.host);
+
+        if (viewMode == 'mercator') {
+
+          var projMercator = d3.geoMercator()
+            .scale(100 * scale)
+            .translate([width * scale / 2, height * scale / 2])
+
+          var point = projMercator([dataset.lon, dataset.lat]);
+
+          var transform = d3.zoomIdentity
+            .translate(-point[0] + (width / 2), -point[1] + (height / 2))
+            .scale(scale);
+
+          zoom.transform(svg, transform)
+
+        } else if (viewMode == 'orthographic') {
+
+          var pointPath = function (lon, lat) {
+            return {
+              type: "Point",
+              coordinates: [lon, lat]
+            }
+          }
+
+          zoom.scaleTo(svg, scale);
+          var point = d3.geoCentroid(pointPath(dataset.lon, dataset.lat))
+          proj.rotate([-point[0], -point[1]])
+          refresh()
+        }
+
+      })
+
+      psSearch.update();
+      updateMarkers(searchFilterResults)
+    }
+
+    function updateText(element, text) {
+      $(element).text(text);
+    }
+
+    function updateHtml(element, html) {
+      $(element).html(html);
+    }
+
+    function formatDate(time) {
+      if (!time) return '';
+      return new Date(parseInt(time) * 1000).toLocaleString();
+    }
+
+    function formatFee(fee) {
+      return (fee / 100).toFixed(2);
+    }
+
+    function fitChart(chart, fitDimension) {
+      var cA = chart.chartArea;
+      var pixelRatio = chart.currentDevicePixelRatio;
+      var chartSize, size, delta;
+
+      chart.canvas.width /= pixelRatio;
+      chart.canvas.height /= pixelRatio;
+
+      if (fitDimension === 'width') {
+        size = chart.width;
+        chartSize = cA.bottom - cA.top;
+        if (chartSize < size) {
+          delta = size - chartSize;
+          chart.canvas.height += delta;
+          chart.height += delta;
+        }
+      } else {
+        size = chart.height;
+        chartSize = cA.right - cA.left;
+        if (chartSize < size) {
+          delta = size - chartSize;
+          chart.canvas.width += delta * pixelRatio;
+          chart.width += delta;
+        }
+      }
+
+      chart.aspectRatio = chart.canvas.width / chart.canvas.height;
+      chart.canvas.style.height = chart.canvas.height + "px";
+      chart.canvas.style.width = chart.canvas.width + "px";
+      Chart.helpers.retinaScale(chart);
+      chart.update();
+    }
+
+    $(window).on('resize', function () {
+      psInfo.update();
+      psSearch.update();
+      psStats.update();
+    });
+
+    function switchView(view) {
+      viewMode = view;
+      if (viewMode == 'orthographic') {
+        $('#btnOrthographic').addClass('active');
+        $('#btnMercator').removeClass('active');
+      } else if (viewMode == 'mercator') {
+        $('#btnOrthographic').removeClass('active');
+        $('#btnMercator').addClass('active');
+      }
+
+      initMap(mapWorld, mapNames, view)
+    }
+
+    $(document).ready(function () {
+      fetchStats();
+      colorCountries();
+
+      $("#btnOrthographic").click(function () {
+        switchView('orthographic');
+      });
+
+      $("#btnMercator").click(function () {
+        switchView('mercator');
+      });
+
+      var options = {
+        attr: "simplersidebar",
+        init: "opened",
+        top: 56,
+        align: "right", // sidebar.align
+        gap: 0, // sidebar.gap
+        animation: {
+          duration: 500,
+          easing: "swing"
+        },
+        selectors: {
+          trigger: "#sidebar-trigger", // opener
+          quitter: "#sidebar-trigger" // sidebar.closingLinks
+        },
+        sidebar: {
+          width: 450
+        },
+        mask: {
+          display: false,
+          css: {
+            backgroundColor: "black",
+            opacity: 0.5,
+            filter: "Alpha(opacity=50)"
+          }
+        }
+      };
+
+      $("#slider").simplerSidebar(options);
+
+      psInfo = new PerfectScrollbar('#info');
+      psSearch = new PerfectScrollbar('#searchResultsContainer', { suppressScrollX: true, minScrollbarLength: 20 });
+      psStats = new PerfectScrollbar('#stats', { suppressScrollX: true });
+
+      $("#searchInput").keyup(processSearch);
+      $('input:radio[name=optSearchNodeType]').change(processSearch);
+
+      $("#clearSearch").click(function () {
+        $("#searchInput").val("")
+        processSearch();
+      });
+
+    });
+
+    function colorCountries() {
+
+      var countries = ["AFG", "ALA", "ALB", "DZA", "ASM", "AND", "AGO", "AIA", "ATA", "ATG", "ARG", "ARM", "ABW", "AUS", "AUT", "AZE", "BHS", "BHR", "BGD", "BRB", "BLR", "BEL", "BLZ", "BEN", "BMU", "BTN", "BOL", "BES", "BIH", "BWA", "BVT", "BRA", "IOT", "VGB", "BRN", "BGR", "BFA", "BDI", "CPV", "KHM", "CMR", "CAN", "CYM", "CAF", "TCD", "CHL", "CHN", "HKG", "MAC", "CXR", "CCK", "COL", "COM", "COG", "COK", "CRI", "CIV", "HRV", "CUB", "CUW", "CYP", "CZE", "PRK", "COD", "DNK", "DJI", "DMA", "DOM", "ECU", "EGY", "SLV", "GNQ", "ERI", "EST", "SWZ", "ETH", "FLK", "FRO", "FJI", "FIN", "FRA", "GUF", "PYF", "ATF", "GAB", "GMB", "GEO", "DEU", "GHA", "GIB", "GRC", "GRL", "GRD", "GLP", "GUM", "GTM", "GGY", "GIN", "GNB", "GUY", "HTI", "HMD", "VAT", "HND", "HUN", "ISL", "IND", "IDN", "IRN", "IRQ", "IRL", "IMN", "ISR", "ITA", "JAM", "JPN", "JEY", "JOR", "KAZ", "KEN", "KIR", "KWT", "KGZ", "LAO", "LVA", "LBN", "LSO", "LBR", "LBY", "LIE", "LTU", "LUX", "MDG", "MWI", "MYS", "MDV", "MLI", "MLT", "MHL", "MTQ", "MRT", "MUS", "MYT", "MEX", "FSM", "MCO", "MNG", "MNE", "MSR", "MAR", "MOZ", "MMR", "NAM", "NRU", "NPL", "NLD", "NCL", "NZL", "NIC", "NER", "NGA", "NIU", "NFK", "MNP", "NOR", "OMN", "PAK", "PLW", "PAN", "PNG", "PRY", "PER", "PHL", "PCN", "POL", "PRT", "PRI", "QAT", "KOR", "MDA", "REU", "ROU", "RUS", "RWA", "BLM", "SHN", "KNA", "LCA", "MAF", "SPM", "VCT", "WSM", "SMR", "STP", "", "SAU", "SEN", "SRB", "SYC", "SLE", "SGP", "SXM", "SVK", "SVN", "SLB", "SOM", "ZAF", "SGS", "SSD", "ESP", "LKA", "PSE", "SDN", "SUR", "SJM", "SWE", "CHE", "SYR", "TJK", "THA", "MKD", "TLS", "TGO", "TKL", "TON", "TTO", "TUN", "TUR", "TKM", "TCA", "TUV", "UGA", "UKR", "ARE", "GBR", "TZA", "UMI", "USA", "VIR", "URY", "UZB", "VUT", "VEN", "VNM", "WLF", "ESH", "YEM", "ZMB", "ZWE"];
+
+      var countryColors = {};
+      var colors = palette('tol-rainbow', countries.length).map((color) => '#' + color);
+
+      countries.forEach((country, index) => {
+        countryColors[country] = colors[index]
+
+      });
+
+      // map.updateChoropleth(countryColors);
+
+    }
+
+  </script>
+</body>
+</html>

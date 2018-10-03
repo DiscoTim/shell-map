@@ -1,0 +1,273 @@
+body, html {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #161719;
+    background-image: url('/img/bg.png');
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+    background-size: contain;
+    box-sizing: border-box;
+}
+
+* {
+    box-sizing: inherit;
+}
+
+hr {
+    border-color: rgb(255,255,255,0.1);
+    width: 90%;
+    margin: 5px 0px;
+    padding: 0px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#logo {
+    width: 50px;
+    height: 40px;
+    background-image: url('/img/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.statsDiv {
+    color: #fff;
+    margin: 10px 0px 0px 20px;
+}
+
+.chartDiv {
+    max-width: 430px;
+    max-height: 750px;
+    margin: 0px 10px 0px 10px;
+}
+
+#sidebar-trigger {
+    cursor: pointer;
+    display: inline-flex;
+}
+
+#sidebar-close {
+    color: #fff;
+    padding: 5px;
+    cursor: pointer;
+    display: block;
+    width: 40px;
+    height: 35px;
+}
+
+#slider {
+    background-color: rgba(22,23,25,0.9);
+}
+
+#regionDonut {
+    height: 250px;
+    width: 430px;
+    display: block;
+}
+
+#countryDonut {
+    height: 500px;
+    width: 430px;
+    display: block;
+}
+
+.noscroll {
+    overflow: hidden;
+}
+
+#nodeInfo {
+    position: relative;
+    white-space: pre;
+}
+
+#map-container {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    vertical-align: top;
+    overflow: hidden;
+}
+
+.svg-content {
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#searchResults {
+    cursor: pointer;
+}
+
+.land {
+    fill: rgb(0,132,61);
+    stroke-opacity: 1;
+}
+
+.countries path {
+    -webkit-transition: fill-opacity 50ms linear;
+    -ms-transition: fill-opacity 50ms linear;
+    transition: fill-opacity 50ms linear;
+}
+
+.countries path {
+    stroke: rgb(0,64,30);
+    stroke-linejoin: round;
+    stroke-width: 0.5;
+    fill: rgba(0,132,61,1);
+    opacity: 1;
+    fill-opacity: 1;
+}
+
+    .countries path:hover {
+        fill-opacity: 0.3;
+        stroke-width: 1.5;
+        opacity: 1;
+        fill: rgb(0,132,61);
+    }
+
+.graticule {
+    fill: none;
+    stroke: white;
+    stroke-width: 0.5;
+    opacity: 0.2;
+}
+
+.noclicks {
+    pointer-events: none;
+}
+
+.bubble {
+    -webkit-transition: stroke 250ms linear;
+    -ms-transition: stroke 250ms linear;
+    transition: stroke 250ms linear;
+}
+
+    .bubble.invalid {
+        stroke: rgb(0,37,17);
+        stroke-linejoin: round;
+        stroke-width: .5;
+        fill: rgb(0,200,92);
+        opacity: .75;
+    }
+
+        .bubble.invalid:hover {
+            stroke: rgb(255,255,255);
+            stroke-linejoin: round;
+            stroke-width: 1.5;
+            fill: rgb(0,200,92);
+            opacity: .75;
+        }
+
+    .bubble.valid {
+        stroke: rgb(0, 37, 17);
+        stroke-linejoin: round;
+        stroke-width: .5;
+        fill: rgb(100, 255, 100);
+        opacity: .75;
+    }
+
+        .bubble.valid:hover {
+            stroke: rgb(255, 255, 255);
+            stroke-linejoin: round;
+            stroke-width: 1.5;
+            fill: rgb(100, 255, 100);
+            opacity: .75;
+        }
+
+.arc {
+    stroke-width: 0.5;
+    stroke-linecap: round;
+    fill: none;
+    stroke: rgb(0, 200, 0);
+}
+
+.d3-tip, .countryTip {
+    transition: opacity .25s linear .25s;
+    -webkit-transition: opacity .25s linear .25s;
+    z-index: 10000;
+}
+
+.d3-tip, .countryTip {
+    line-height: 1;
+    font-weight: normal;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    border-radius: 5px;
+    pointer-events: none;
+}
+
+    /* Creates a small triangle extender for the tooltip */
+    .d3-tip:after, .countryTip:after {
+        box-sizing: border-box;
+        display: inline;
+        font-size: 12px;
+        width: 100%;
+        line-height: 1;
+        color: rgba(0, 0, 0, 0.8);
+        position: absolute;
+        pointer-events: none;
+    }
+
+    /* Northward tooltips */
+    .d3-tip.n:after, .countryTip:after {
+        content: "\25BC";
+        margin: -1px 0 0 0;
+        top: 100%;
+        left: 0;
+        text-align: center;
+    }
+
+    /* Eastward tooltips */
+    .d3-tip.e:after {
+        content: "\25C0";
+        margin: -4px 0 0 0;
+        top: 50%;
+        left: -8px;
+    }
+
+    /* Southward tooltips */
+    .d3-tip.s:after {
+        content: "\25B2";
+        margin: 0 0 1px 0;
+        top: -8px;
+        left: 0;
+        text-align: center;
+    }
+
+    /* Westward tooltips */
+    .d3-tip.w:after {
+        content: "\25B6";
+        margin: -4px 0 0 -1px;
+        top: 50%;
+        left: 100%;
+    }
+
+.divTableCell {
+    display: table-cell;
+    vertical-align: top;
+    padding-right: 8px;
+}
+
+.divTableRow {
+    display: table-row;
+}
+
+.divTableBody {
+    display: table-row-group;
+}
+
+.divTable {
+    display: table;
+    width: 100%;
+}
