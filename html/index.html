@@ -30,19 +30,19 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div id="logo"></div>
-      <a class="navbar-brand" href="#">Shell Map - Turtlecoin Global Network</a>
+      <a class="navbar-brand" href="#">Shell Map<span class="d-none d-md-inline"> - Turtlecoin Global Network</span></a>
 
       <div style="margin-left:auto; display: inline-flex;">
         <div class="btn-group mr-2" role="group" aria-label="First group">
-          <button type="button" class="btn btn-outline-success my-2 my-sm-0 active" id="btnOrthographic">
+          <button type="button" class="btn btn-outline-success active" id="btnOrthographic">
             <i class="fas fa-globe"></i>
           </button>
-          <button type="button" class="btn btn-outline-success my-2 my-sm-0" id="btnMercator">
+          <button type="button" class="btn btn-outline-success" id="btnMercator">
             <i class="far fa-map"></i>
           </button>
         </div>
 
-        <button id="sidebar-trigger" class="btn btn-outline-success my-2 my-sm-0">
+        <button id="sidebar-trigger" class="btn btn-outline-success">
           <i class="fas fa-bars"></i>
         </button>
       </div>
@@ -93,7 +93,7 @@
         <div style="position: relative; margin-bottom: 5px;">
           <div style="display: flex; margin-bottom: 5px;">
             <input id="searchInput" class="form-control mr-sm-2" style="" type="text" placeholder="Search IP or Host" aria-label="Search" autocomplete="off">
-            <button type="button" class="btn btn-outline-success my-2 my-sm-0" id="clearSearch">
+            <button type="button" class="btn btn-outline-success" id="clearSearch">
               <i class="far fa-times-circle"></i>
             </button>
           </div>
@@ -126,6 +126,9 @@
     var svg;
 
     var initialScale;
+
+    var timer;
+    var time;
 
     const graticule = d3.geoGraticule();
 
@@ -169,6 +172,7 @@
     function initMap(world, names, view) {
 
       viewMode = view;
+      if (timer) timer.stop();
 
       if (svg) {
         svg.remove();
@@ -176,7 +180,7 @@
       }
 
       svg = d3.select("#map-container").append("svg")
-        .attr("preserveAspectRatio", "xMidYMin meet")
+        .attr("preserveAspectRatio", "xMidYMid meet")
         .attr("viewBox", "0 25 " + width + " " + height)
         .classed("svg-content", true);
 
@@ -298,6 +302,11 @@
           .style("fill", "url(#globe_shading)");
       }
 
+      if (view == "orthographic") {
+        time = Date.now();
+        spin();
+      }
+
       refresh();
 
     }
@@ -306,15 +315,11 @@
     var lastScale = 0;
 
     function refresh() {
-      // svg.selectAll(".land").attr("d", path);
+
       svg.selectAll(".countries path").attr("d", path);
       svg.selectAll(".graticule").attr("d", path);
-      // svg.selectAll(".point").attr("d", path);
-      // svg.selectAll(".bubbles path").attr("d", path);
-
       svg.selectAll("circle").attr("r", proj.scale());
-      svg.selectAll("ellipse").attr("rx", proj.scale() * .9).attr("ry", proj.scale() * .25);
-      // svg.selectAll("ellipse").attr("ry", proj.scale() *.25);
+      svg.selectAll("ellipse").attr("rx", proj.scale() * .9).attr("ry", proj.scale() * .25);     
 
       var currentRotate = proj.rotate();
       if (proj.scale() != lastScale || currentRotate[0] != lastRotate[0] || currentRotate[1] != lastRotate[1] || currentRotate[2] != lastRotate[2]) {
@@ -324,9 +329,22 @@
       lastScale = proj.scale();
       lastRotate = proj.rotate();
     }
+    
+    function spin() {
+      var rotate = [0, 0];
+      var velocity = [.003, -0];
+      
+      timer = d3.timer(function () {
+        var dt = Date.now() - time;
+
+        proj.rotate([rotate[0] + velocity[0] * dt, rotate[1] + velocity[1] * dt]);
+
+        refresh();
+      });
+    }
 
     function dragStart() {
-      // timer.stop();
+      if (timer) timer.stop();
       if (viewMode == "orthographic") {
         v0 = versor.cartesian(proj.invert(d3.mouse(this)));
         r0 = proj.rotate();
@@ -972,7 +990,7 @@
 
       var options = {
         attr: "simplersidebar",
-        init: "opened",
+        init: ($(window).width() > 700 ? "opened" : "closed"),
         top: 56,
         align: "right", // sidebar.align
         gap: 0, // sidebar.gap
