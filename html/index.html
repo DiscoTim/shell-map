@@ -316,16 +316,17 @@
 
     function refresh() {
 
-      svg.selectAll(".countries path").attr("d", path);
-      svg.selectAll(".graticule").attr("d", path);
-      svg.selectAll("circle").attr("r", proj.scale());
-      svg.selectAll("ellipse").attr("rx", proj.scale() * .9).attr("ry", proj.scale() * .25);     
-
       var currentRotate = proj.rotate();
+
       if (proj.scale() != lastScale || currentRotate[0] != lastRotate[0] || currentRotate[1] != lastRotate[1] || currentRotate[2] != lastRotate[2]) {
+        svg.selectAll(".countries path").attr("d", path);
+        svg.selectAll(".graticule").attr("d", path);
+        svg.selectAll("circle").attr("r", proj.scale());
+        svg.selectAll("ellipse").attr("rx", proj.scale() * .9).attr("ry", proj.scale() * .25);
         if (searchFilterResults) updateMarkers(searchFilterResults);
         if (lastArcs) updateArcs(lastArcs)
       }
+
       lastScale = proj.scale();
       lastRotate = proj.rotate();
     }
@@ -377,7 +378,7 @@
         proj.scale(initialScale * scale);
 
         t.x = Math.min(0, Math.max(t.x, width - width * scale)),
-          t.y = Math.min(0, Math.max(t.y, height - height * scale));
+        t.y = Math.min(0, Math.max(t.y, height - height * scale));
 
         // pan using projection
         // proj.translate([t.x + (width * scale) / 2, t.y + (height * scale) / 2])
@@ -762,7 +763,6 @@
           this.style.strokeDashoffset = '0';
           return 'none';
         })
-
     }
 
     function updateNode(nodeData, data) {
