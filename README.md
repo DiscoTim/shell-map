@@ -3,7 +3,7 @@
 ## Setup
 
 ```
-https://github.com/DiscoTim/shell-map.git
+git clone https://github.com/DiscoTim/shell-map.git
 cd shell-map
 npm install
 node ./node_modules/geoip-lite/scripts/updatedb.js
