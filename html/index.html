@@ -375,7 +375,10 @@
       } else if (viewMode = "mercator") {
         var t = d3.event.transform;
         var scale = t.k;
-        proj.scale(initialScale * scale);
+
+        if (proj.scale() != initialScale * scale) {
+          proj.scale(initialScale * scale);
+        }
 
         t.x = Math.min(0, Math.max(t.x, width - width * scale)),
         t.y = Math.min(0, Math.max(t.y, height - height * scale));
